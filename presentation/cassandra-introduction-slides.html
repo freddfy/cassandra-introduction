@@ -1,0 +1,302 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <title>Introduction to Cassandra</title>
+
+    <link rel="stylesheet" href="dist/reset.css">
+    <link rel="stylesheet" href="dist/reveal.css">
+    <link rel="stylesheet" href="dist/theme/black.css" id="theme">
+
+    <!-- Theme used for syntax highlighted code -->
+    <link rel="stylesheet" href="plugin/highlight/monokai.css" id="highlight-theme">
+</head>
+<body>
+<div class="reveal">
+    <div class="slides">
+        <section>
+            <h3>Introduction to Apache Cassandra</h3>
+            <p>
+                <small>The basics and the lessons learnt</small>
+            </p>
+        </section>
+        <section>
+            <section>
+                <section>
+                    <h3>What is Cassandra?</h3>
+                    <p>
+                    <ul>
+                        <li>A NoSQL DB/Distributed key/value store</li>
+                        <li>Scalable</li>
+                        <li>Highly Available</li>
+                    </ul>
+                    </p>
+                </section>
+            </section>
+            <section>
+                <h3>But there are some catches...</h3>
+                <p><small>
+                    <ul>
+                        <li>Not so work out of the box (at least for open source version)</li>
+                        <ul>
+                            <li>as compared to other NoSQL, e.g Elasticsearch, MongoDB</li>
+                            <li>lacks of free/open source monitoring tool (at least in 2.1)</li>
+                        </ul>
+                        <li>Need to know your query pattern upfront(for schema design)</li>
+                    </ul>
+                </small></p>
+                <img height=350 data-src="./img/Build a horse with NoSQL.png"/>
+            </section>
+        </section>
+        <section>
+            <section>
+                <h3>The CAP Theorem</h3>
+                <ul>
+                    <li>Consistency</li>
+                    <li>Availability</li>
+                    <li>Partition Tolerance</li>
+                </ul>
+                <br>
+                <img Height="350" data-src="./img/CAP.png">
+            </section>
+            <section>
+                <h3>However In Reality...</h3>
+                <ul>
+                    <li>Partition Tolerance is a given - network failures generally has to be tolerated</li>
+                    <li>A distributed system can only trade off between consistency and availability</li>
+                    <li>Though consistency and availability are not necessarily exclusive</li>
+                </ul>
+            </section>
+        </section>
+        <section>
+            <section>
+                <h3>Cassandra Availability</h3>
+                <ul>
+                    <li>Data Redundancy</li>
+                    <li>Masterless</li>
+                </ul>
+            </section>
+            <section>
+                <h3>Data Redundancy</h3>
+                <small>
+                    <ul>
+                        <li>Consistent Hashing (on Partition Key)</li>
+                        <li>Virtual Nodes</li>
+                    </ul>
+                </small>
+                <br>
+                <img height="500" data-src="./img/virtual_nodes.png">
+            </section>
+            <section>
+                <h3>Masterless</h3>
+                <p>
+                    <ul>
+                        <li>Every node is coordinator node</li>
+                        <small>
+                            <li>Queries being distributed among all nodes</li>
+                            <li>The node becomes the coordinator for the query</li>
+                            <li>Read/write success/failure depends on</li>
+                            <ul>
+                                <li>Replication Factor</li>
+                                <li>Consistency Level</li>
+                            </ul>
+                            <li>Failure detection and recover</li>
+                            <ul>
+                                <li>Gossip - A peer-to-peer communication protocol to discover and share location and
+                                state information about the other nodes in a Cassandra cluster</li>
+                            </ul>
+                        </small>
+                    </ul>
+                </p>
+            </section>
+            <section>
+                <h3>When Replication Factor = 2</h3>
+                <p>Considering Consistency Level...</p>
+                <small>
+                    <ul>
+                        <li>Read = 3 and Write = 1?</li>
+                        <li>Read = 1 and Write = 3?</li>
+                        <li>Read = 2 and Write = 2? = Quorum</li>
+                    </ul>
+                </small>
+                <br>
+                <img height="300" data-src="./img/Cassandra-Read-Write-Path-Ring.png">
+            </section>
+        </section>
+        <section>
+            <section>
+                <h3>Cassandra Scalability</h3>
+                <small>
+                    <ul>
+                        <li>Masterless and make use of coordinator node</li>
+                        <li>Immutable data structures</li>
+                    </ul>
+                </small>
+            </section>
+            <section>
+                <h3>Immutable Data Structures</h3>
+                <p>
+                    <ul>
+                        <li>SSTable - Sorted String Table</li>
+                        <small>
+                            <ul>
+                                <li>Flush from the memtable to a SSTable periodically</li>
+                            </ul>
+                        </small>
+                        <li>Tombstone</li>
+                        <small>
+                            <ul>
+                                <li>To Mark on a column that is deleted</li>
+                                <li>To simplify, it's like special column value in SSTable</li>
+                            </ul>
+                        </small>
+                    </ul>
+                </p>
+            </section>
+            <section>
+                <h3>SSTable Example</h3>
+                <p>
+                    <pre><code class="cql" data-trim contenteditable style="font-size: 18px;">
+                        CREATE TABLE IF NOT EXISTS test_key_space.price (
+                            asset_name text,
+                            price_date text,
+                            close text,
+                            PRIMARY_KEY(
+                                asset_name, ## partition key
+                                price_date, ## Column key
+                            )
+                        );
+                    </code></pre>
+                    <small>
+                        <ul>
+                            <li>To simplified, it's like a Map<\Parition Key, SortedMap<\Column Key, Column Value></li>
+                        </ul>
+                        <table>
+                            <thead>
+                            <tr>
+                                <th>Partition Key</th>
+                                <th>Column Key/Value</th>
+                                <th>Column Key2/Value</th>
+                                <th>...</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>0700.HK</td>
+                                    <td>20210102/close:700</td>
+                                    <td>20210103/close:710</td>
+                                    <td>...</td>
+                                </tr>
+                                <tr>
+                                    <td>0700.HK</td>
+                                    <td>20210103/close:711</td>
+                                    <td></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td>0005.HK</td>
+                                    <td>20210102/34.2</td>
+                                    <td>20210102/Tomestone</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </small>
+                </p>
+            </section>
+            <section>
+                <h3>Why Immutable?</h3>
+                <p>
+                    <img height=200, data-src="./img/SSTable.png">
+                    <small>
+                        <ul>
+                            <div class="fragment">
+                                <li>Efficient to write</li>
+                                <ul>
+                                    <li>No need to lockup/load the existing values to insert/upsert/delete</li>
+                                </ul>
+                            </div>
+                            <div class="fragment">
+                                <li>Good enough to read</li>
+                                <ul>
+                                    <li>SSTable Index to map a partition key to memtable + multiple SSTables containing the key</li>
+                                    <li>Lod all the involved tables to resolve the latest value</li>
+                                </ul>
+                            </div>
+                            <div class="fragment">
+                                <li>Periodically Compaction</li>
+                                <ul>
+                                    <li>In long runs, there will be many small SSTable (with Tombstones potentially)</li>
+                                    <li>Compaction to merge SSTables and purge deleted rows</li>
+                                </ul>
+                            </div>
+                            <div class="fragment">
+                                <li>Decompaction?</li>
+                                <ul>
+                                    <li class="fragment">When the merged SSTable is too big to fit into memory...</li>
+                                </ul>
+                            </div>
+                        </ul>
+                    </small>
+                </p>
+            </section>
+        </section>
+        <section>
+            <h3>Cassandra Schema Design Demo</h3>
+        </section>
+        <section>
+            <h3>Takeaway</h3>
+            <p>
+                <ul>
+                    <li>Availability</li>
+                    <ul>
+                        <li>Data Redundancy</li>
+                        <li>Masterless and corrdinator nodes</li>
+                        <li>Replication Factor</li>
+                        <li>Consistency Level</li>
+                    </ul>
+                    <li>Scalability</li>
+                    <ul>
+                        <li>Queries being distributed among nodes</li>
+                        <li>Immutable data structure - SSTable and Tomestone</li>
+                    </ul>
+                    <li>Schema design</li>
+                    <ul>
+                        <li>You must know your query pattern upfront</li>
+                    </ul>
+                </ul>
+            </p>
+        </section>
+        <section>
+            <h3>References</h3>
+            <p>
+                <small>
+                    <ul>
+                        <li>https://en.wikipedia.org/wiki/CAP_theorem</li>
+                        <li>https://docs.datastatx.com/en/ddac/doc/dadastax_enterprise/dbArch/archTOC.html</li>
+                        <li>The pictures are from internet and their copyright belong to the original author</li>
+                    </ul>
+                </small>
+            </p>
+        </section>
+    </div>
+</div>
+
+<script src="dist/reveal.js"></script>
+<script src="plugin/notes/notes.js"></script>
+<script src="plugin/markdown/markdown.js"></script>
+<script src="plugin/highlight/highlight.js"></script>
+<script>
+			// More info about initialization & config:
+			// - https://revealjs.com/initialization/
+			// - https://revealjs.com/config/
+			Reveal.initialize({
+				hash: true,
+
+				// Learn about plugins: https://revealjs.com/plugins/
+				plugins: [ RevealMarkdown, RevealHighlight, RevealNotes ]
+			});
+		</script>
+</body>
+</html>
